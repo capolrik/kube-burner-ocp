@@ -345,3 +345,38 @@ func verifyOrGetRandomWorkerNodeName(workerNodeName string) string {
 
 	return workerNodeNamesArray[rand.Intn(len(workerNodeNamesArray))]
 }
+func getListOfRandomWorkerNodeNames(nbOfNodes int) []string {
+	if nbOfNodes < 1 {
+		log.Fatalf("Error getting nodes: %v", "nbOfNodes must be greater than 0")
+		return []string{}
+	}
+	k8sConnector := getK8SConnector()
+	nodes, err := k8sConnector.ClientSet().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "node-role.kubernetes.io/worker"})
+	if err != nil {
+		log.Fatalf("Error getting nodes: %v", err)
+		return []string{}
+	}
+
+	workerNodeNamesMap := make(map[string]struct{}, len(nodes.Items))
+	for _, node := range nodes.Items {
+		workerNodeNamesMap[node.Name] = struct{}{}
+	}
+
+	workerNodeNamesArray := make([]string, 0, len(workerNodeNamesMap))
+	for k := range workerNodeNamesMap {
+		workerNodeNamesArray = append(workerNodeNamesArray, k)
+	}
+
+	// Limit nbOfNodes to the available number of nodes
+	if nbOfNodes > len(workerNodeNamesArray) {
+		nbOfNodes = len(workerNodeNamesArray)
+	}
+
+	// Shuffle the array to randomize selection
+	rand.Shuffle(len(workerNodeNamesArray), func(i, j int) {
+		workerNodeNamesArray[i], workerNodeNamesArray[j] = workerNodeNamesArray[j], workerNodeNamesArray[i]
+	})
+
+	// Return the first nbOfNodes elements
+	return workerNodeNamesArray[:nbOfNodes]
+}

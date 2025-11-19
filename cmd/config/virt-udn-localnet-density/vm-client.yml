@@ -1,0 +1,58 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: virt-client-{{.Iteration}}
+  namespace: virt-density-client
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        kubevirt.io/os: fedora
+    spec:
+      terminationGracePeriodSeconds: 0
+      domain:
+        resources:
+          requests:
+            memory: 512Mi
+        devices:
+          disks:
+          - name: containerdisk
+            disk:
+              bus: virtio
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          - name: emptydisk
+            disk:
+              bus: virtio
+          interfaces:
+          - name: default
+            masquerade: {}
+          - name: second-localnet
+            bridge: {}
+      networks:
+      - name: default
+        pod: {}
+      - name: second-localnet
+        multus:
+          networkName: cudn-localnet
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: {{.vmImage}}
+          imagePullPolicy: IfNotPresent
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userData: |-
+            #cloud-config
+            password: perfscale
+            chpasswd: { expire: False }
+          networkData: |
+            version: 2
+            ethernets:
+              eth1:
+                dhcp4: true
+      - name: emptydisk
+        emptyDisk:
+          capacity: "10Mi"

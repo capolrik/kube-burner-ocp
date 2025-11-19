@@ -45,9 +45,11 @@ func NewVirtMigration(wh *workloads.WorkloadHelper) *cobra.Command {
 	var sshKeyPairPath string
 	var iterations int
 	var vmsPerIteration int
+	var nbOfNodes int
 	var testNamespace string
 	var dataVolumeCount int
 	var workerNodeName string
+	var workerNamesList []string
 	var metricsProfiles []string
 	var loadVMsIterations int
 	var loadVMsPerIteration int
@@ -66,9 +68,13 @@ func NewVirtMigration(wh *workloads.WorkloadHelper) *cobra.Command {
 			}
 
 			storageClassName, _ = getStorageAndSnapshotClasses(storageClassName, false, true)
-
-			workerNodeName = verifyOrGetRandomWorkerNodeName(workerNodeName)
-			log.Infof("Test will schedule on and migrate from worker node [%v]", workerNodeName)
+			if nbOfNodes > 1 {
+				workerNamesList = getListOfRandomWorkerNodeNames(nbOfNodes)
+				log.Infof("Test will schedule on and migrate from worker nodes [%v]", workerNamesList)
+			} else {
+				workerNamesList = []string{verifyOrGetRandomWorkerNodeName(workerNodeName)}
+				log.Infof("Test will schedule on and migrate from worker node [%v]", workerNamesList)
+			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			privateKeyPath, publicKeyPath, err := ssh.GenerateSSHKeyPair(sshKeyPairPath, virtMigrationTmpDirPattern, virtMigrationSSHKeyFileName)
@@ -85,7 +91,7 @@ func NewVirtMigration(wh *workloads.WorkloadHelper) *cobra.Command {
 			AdditionalVars["vmCreateIterations"] = iterations
 			AdditionalVars["vmCreatePerIteration"] = vmsPerIteration
 			AdditionalVars["dataVolumeCounters"] = generateLoopCounterSlice(dataVolumeCount, 1)
-			AdditionalVars["workerNodeName"] = workerNodeName
+			AdditionalVars["workerNodesName"] = workerNamesList
 			AdditionalVars["loadVMsIterations"] = loadVMsIterations
 			AdditionalVars["loadVMsPerIteration"] = loadVMsPerIteration
 			AdditionalVars["migrationQPS"] = migrationQPS
@@ -97,7 +103,8 @@ func NewVirtMigration(wh *workloads.WorkloadHelper) *cobra.Command {
 			os.Exit(rc)
 		},
 	}
-	cmd.Flags().StringVar(&workerNodeName, "worker-node", "", "Name of the Worker Node to schedule and migrate from. If not set, a random one is used")
+	cmd.Flags().StringVar(&workerNodeName, "worker-node", "", "Only when nb-of-nodes is 1. Name of the Worker Node to schedule and migrate from. If not set, a random one is used")
+	cmd.Flags().IntVar(&nbOfNodes, "nb-of-nodes", 1, "Number of Worker Nodes to schedule and migrate from. If not set, a random one is used")
 	cmd.Flags().StringVar(&storageClassName, "storage-class", "", "Name of the Storage Class to test")
 	cmd.Flags().StringVar(&sshKeyPairPath, "ssh-key-path", "", "Path to save the generarated SSH keys")
 	cmd.Flags().StringVarP(&testNamespace, "namespace", "n", virtMigrationTestName, "Name for the namespace to run the test in")

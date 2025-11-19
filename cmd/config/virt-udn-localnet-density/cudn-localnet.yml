@@ -1,0 +1,17 @@
+apiVersion: k8s.ovn.org/v1
+kind: ClusterUserDefinedNetwork
+metadata:
+  name: cudn-localnet 
+spec:
+  namespaceSelector: 
+    matchExpressions: 
+    - key: kubernetes.io/metadata.name
+      operator: In 
+      values: ["virt-density-client", "virt-density-server"]
+  network:
+    topology: Localnet 
+    localnet:
+        role: Secondary 
+        physicalNetworkName: providerNetwork
+        subnets: ["192.168.100.0/18"]
+        excludeSubnets: ["192.168.100.1/32"]

@@ -49,7 +49,9 @@ spec:
               - key: kubernetes.io/hostname
                 operator: {{ .affinity }}
                 values:
-                - {{ .workerNodeName }}
+                {{- range .workerNodesName }}
+                  - {{ . }}
+                {{- end }}
       accessCredentials:
       - sshPublicKey:
           propagationMethod:

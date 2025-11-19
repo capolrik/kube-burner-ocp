@@ -1,7 +1,8 @@
 apiVersion: k8s.ovn.org/v1
 kind: UserDefinedNetwork
 metadata:
-  name: l2-network-migration
+  name: l2-network-migration-{{ .Iteration }}
+  namespace: {{ .testNamespace }}-{{ .Iteration }}
 spec:
   topology: Layer2
   layer2:

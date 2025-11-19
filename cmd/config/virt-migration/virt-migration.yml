@@ -14,7 +14,15 @@ metricsEndpoints:
 - indexer:
     type: local
     metricsDirectory: ./virt-migration-results
-
+{{ if .ES_SERVER }}
+- metrics: [{{.METRICS}}]
+  alerts: [{{.ALERTS}}]
+  indexer:
+    esServers: ["{{.ES_SERVER}}"]
+    insecureSkipVerify: true
+    defaultIndex: {{.ES_INDEX}}
+    type: opensearch
+{{ end }}
 jobs:
 - name: start-fresh
   jobType: delete
@@ -31,7 +39,7 @@ jobs:
   jobIterations: {{ .vmCreateIterations }}
   qps: 20
   burst: 20
-  namespacedIterations: false
+  namespacedIterations: true
   namespace: {{ .testNamespace }}
   namespaceLabels:
     {{ $testNamespacesLabelKey }}: {{ $testName }}
@@ -59,14 +67,13 @@ jobs:
 
   {{ if .udnLayer2 }}
   - objectTemplate: udn_l2.yml
-    runOnce: true
     replicas: 1
     inputVars:
       udnSubnets: {{ .udnSubnets }}
+      testNamespace: {{ .testNamespace }}
   {{ end }}
 
   - objectTemplate: templates/secret_ssh_public.yml
-    runOnce: true
     replicas: 1
     inputVars:
       name: {{ $sshPublicKeySecretName }}
@@ -85,15 +92,17 @@ jobs:
       - {{ . }}
       {{ end }}
       affinity: "In"
-      workerNodeName: {{ .workerNodeName }}
-
+      workerNodesName:
+      {{ range .workerNodesName }}
+      - {{ . }}
+      {{ end }}
 {{- if gt .loadVMsPerIteration 0 }}
 - name: {{ $createLoadVMsJobName }}
   jobType: create
   jobIterations: {{ .loadVMsIterations }}
   qps: 20
   burst: 20
-  namespacedIterations: false
+  namespacedIterations: true
   namespace: {{ .testNamespace }}
   namespaceLabels:
     {{ $testNamespacesLabelKey }}: {{ $testName }}
@@ -128,7 +137,10 @@ jobs:
       - {{ . }}
       {{ end }}
       affinity: "NotIn"
-      workerNodeName: {{ .workerNodeName }}
+      workerNodesName:
+      {{ range .workerNodesName }}
+      - {{ . }}
+      {{ end }}
 {{- end }}
 
 - name: remove-affinity-rule
@@ -151,7 +163,7 @@ jobs:
   qps: {{ .migrationQPS }}
   burst: {{ .migrationQPS }}
   jobIterations: 1
-  maxWaitTimeout: 1h
+  maxWaitTimeout: 6h
   waitWhenFinished: true
   {{ if .udnLayer2 }}
   beforeCleanup: "./check-udn.sh kube-burner-job {{ $createMigratingVMsJobName }} {{ .testNamespace }} {{ .privateKey }} fedora"
